@@ -1,14 +1,27 @@
 from tkinter import *
 from tkinter import ttk
+from datetime import datetime
+import json
+
+
 print("start")
+#load the steam.json file
+with open('./steam.json') as f:
+    jsondata = json.load(f)
+
+#global variables
+time_game_started = None
+current_game = None
+
 #make the root
 root = Tk()
 root.title("Steam")
-root.geometry("1000x500")
+root.geometry("1400x600")
 root.configure()
 
+#set grid for the frames
 root.grid_rowconfigure(0, minsize=200, weight=1)
-root.grid_columnconfigure(0, minsize=200, weight=1)
+root.grid_columnconfigure(0, minsize=150, weight=1)
 root.grid_columnconfigure(1, weight=1)
 
 #style
@@ -19,10 +32,12 @@ style.configure(
 )
 
 #making two frames for games and friendlist
-friendlist_frame = Frame(root, width=100, height=100, bg="#696969")
-game_frame = Frame(root, width=100, height=100, bg="#696969")
-friendlist_frame.grid(row=0,column=1, sticky="nsew")
-game_frame.grid(row=0,column=0, sticky="nsew")
+library_frame = Frame(root, bg="#696969")
+library_frame.grid(row=0,column=0, sticky="nsew")
+gameinfo_frame = Frame(root, bg="#696969")
+gameinfo_frame.grid(row=0,column=1, sticky="nsew")
+friendlist_frame = Frame(root, bg="#696969")
+friendlist_frame.grid(row=0,column=2, sticky="nsew")
 
 #temp text in entry field
 def on_entry_click(event):
@@ -55,18 +70,60 @@ def delete_friend():
         pass
 
 def update_game(game):
+    global time_game_started
+    global current_game
+    time_game_started = datetime.now()
+    current_game = game
     current_game_label.config(text="Playing: " + game)
-    show_stopplaying_button()
+    stop_playing_button.grid(row=0, column=1, columnspan=1, padx=5, pady=5)
+    time_played_label.grid_remove()
+    show_game_statistics(game)
 
 def stop_game():
+    global current_game
     current_game_label.config(text="Currently not playing a game")
-    hide_stopplaying_button()
-
-def hide_stopplaying_button():
     stop_playing_button.grid_remove()
+    time_played = (datetime.now() -time_game_started)
+    time_played_label.config(text="Played " + current_game +" for : " + str(time_played).split(".")[0])
+    time_played_label.grid(row=1, column=0, columnspan=1, padx=5, pady=5)
+    hide_game_statistics()
 
-def show_stopplaying_button():
-    stop_playing_button.grid(row=0, column=4, columnspan=1, padx=5, pady=5)
+
+def show_game_statistics(game):
+    #find the right jsonobject for currentgame
+    global jsondata
+    gamestatsprint = "stats not found"
+    try:
+        for gamedata in jsondata:
+            if game == gamedata["name"]:
+                displaygame = gamedata
+        gamestatsprint =  (
+        "developer : " + str(displaygame["developer"]) +
+        "\npublisher : " + str(displaygame["publisher"]) + 
+        "\nrelease_date : " + str(displaygame["release_date"]) +
+        "\nachievements : " + str(displaygame["achievements"]) + 
+        "\npositive_ratings : " + str(displaygame["positive_ratings"]) + 
+        "\nnegative_ratings : " + str(displaygame["negative_ratings"]) + 
+        "\nprice : " + str(displaygame["price"]) +
+        "\naverage_playtime : " + str(displaygame["average_playtime"]) + 
+        "\nowners : " + str(displaygame["owners"]) +
+        "\ncategories : " + str(displaygame["categories"]) +
+        "\ngenres : " + str(displaygame["genres"]) +
+        "\nsteamspy_tags : " + str(displaygame["steamspy_tags"]) +
+        "\nplatforms : " + str(displaygame["platforms"])
+    )
+    except:
+        print("Could not find game in steam.json")
+    
+    gamestats_label.config(text=gamestatsprint)
+    gamestats_label.grid(row=1, column=0, columnspan=4, padx=5, pady=5)
+
+
+
+
+def hide_game_statistics():
+    gamestats_label.grid_remove()
+
 
 #inputfield and add button
 e = Entry(friendlist_frame)
@@ -101,12 +158,18 @@ add_button = Button(friendlist_frame, text="delete friend", padx=5, pady=5, comm
 add_button.grid(row=5, column=2, columnspan=1, padx=5, pady=5)
 
 #playing game display
-current_game_label = ttk.Label(game_frame, text="Currently not playing a game")
-current_game_label.grid(row=0, column=0, columnspan=3, padx=5, pady=5)
-stop_playing_button = Button(game_frame, text="stop game", command=stop_game)
+current_game_label = ttk.Label(gameinfo_frame, text="Currently not playing a game", font=("TkDefaultFont", 33))
+current_game_label.grid(row=0, column=0, columnspan=1, padx=5, pady=5)
+
+#stop playing button and timeplayed
+stop_playing_button = Button(gameinfo_frame, text="stop game", command=stop_game)
+time_played_label = ttk.Label(gameinfo_frame, text="")
+
+#gamestatistics
+gamestats_label = ttk.Label(gameinfo_frame, text="no statistics found")
 
 #labelframe for library
-labelframe = LabelFrame(game_frame, text="Game Library", font=("TkDefaultFont", 33), bg="#696969")
+labelframe = LabelFrame(library_frame, text="Game Library", font=("TkDefaultFont", 33), bg="#696969")
 labelframe.grid(row=1, rowspan=1, column=0, columnspan=5)
 
 #load gamelist
