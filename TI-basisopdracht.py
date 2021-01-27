@@ -1,8 +1,14 @@
 import time
 import RPi.GPIO as GPIO
 import random
+from xmlrpc.server import SimpleXMLRPCServer
+from xmlrpc.server import SimpleXMLRPCRequestHandler
+import socket
 GPIO.setmode( GPIO.BCM )
 GPIO.setwarnings( 0 )
+
+HOST = ''
+PORT = 65432
 
 led_pin = 18
 switch_pin = 23
@@ -60,6 +66,7 @@ class servo:
     def __init__( self, servo_pin ):
         self.servo_pin = servo_pin
         GPIO.setup( self.servo_pin, GPIO.OUT )
+        self.set_servo(1)
 
     def set_servo( self, position ):
         GPIO.output( self.servo_pin, GPIO.HIGH )
@@ -109,6 +116,8 @@ class register:
     data_pin = 0
     delay = 0.1
 
+    numbers = { 0: 0, 1: 1, 2: 3, 3: 7, 4: 15, 5: 31, 6: 63, 7: 127, 8: 255} 
+
     def __init__( self, shift_clock_pin, latch_clock_pin, data_pin ):
         self.shift_clock_pin = shift_clock_pin
         self.latch_clock_pin = latch_clock_pin
@@ -132,7 +141,7 @@ class register:
     def set_byte( self, value ):
         byter = bytes([value])
         byte = byter[0]
-        for x in range(8):
+        for x in range(8, -1, -1):
             bit = (byte >> x) & 1
             if bit == 1:
                 GPIO.output( self.data_pin, GPIO.HIGH )
@@ -143,6 +152,9 @@ class register:
             time.sleep( self.delay )
         GPIO.output( self.latch_clock_pin, GPIO.HIGH )
         GPIO.output( self.latch_clock_pin, GPIO.LOW )
+
+    def set_leds( self, value ):
+        self.set_byte(self.numbers[value])
 
 class led_strip:
     """
@@ -159,7 +171,8 @@ class led_strip:
     options = { "red": [ 0, 0, 255 ], "green": [ 0, 255, 0 ], "blue": [ 255, 0, 0],
                 "white": [ 255, 255, 255 ], "yellow": [ 0, 255, 255 ], "orange": [ 0, 128, 255 ],
                 "pink": [ 255, 0, 255 ], "gray": [ 128, 128, 128 ], "black": [ 0, 0, 0 ],
-                "lime": [ 0, 255, 128], "cyan": [ 255, 255, 0 ], "purple": [ 255, 0, 128 ]}
+                "lime": [ 0, 255, 128], "cyan": [ 255, 255, 0 ], "purple": [ 255, 0, 128 ],
+                "":[0, 0, 0]}
 
     colors = [ [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0],
                [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0] ]
@@ -201,31 +214,74 @@ class led_strip:
                 print("not a valid color")
                 self.colors[x] = [ 0, 0, 0 ]
         self.apa102()
-        
-                            
 
 led_1 = led( led_pin )
 switch_1 = switch( switch_pin )
 servo_1 = servo( servo_pin )
 SR04_1 = SR04( trig_pin, echo_pin )
 reg_1 = register( shift_clock_pin, latch_clock_pin, data_pin ) 
-led_strip_1 = led_strip( strip_clock_pin, strip_data_pin )    
+led_strip_1 = led_strip( strip_clock_pin, strip_data_pin )
 
-led_strip_1.set_colors(["cyan", "orange", "yellow", "gray", "white", "purple", "pink", "black"])
-                    
-while True:
-    reg_1.set_byte( 170 )
-    reg_1.set_byte( 85 )
-    if SR04_1.get_distance() < 10:
-        break
-
-    
-while True:
-    if switch_1.get_switch():
-        led_1.set_led( True )
-        servo_1.set_servo( random.randint(1, 100) )
-        time.sleep(0.05)
+def calls(component, value=None):  
+    if component == "led":
+        #value has to be True or False
+        led_1.set_led( value )
+    elif component == "switch":
+        return switch_1.get_switch( )
+    elif component == "servo":
+        #value has to be between 1 and 100
+        servo_1.set_servo( value )
+    elif component == "SR04":
+        return SR04_1.get_distance( )
+    elif component == "reg":
+        #value has to be between 0 and 8
+        reg_1.set_leds( value )
+    elif component == "strip":
+        #value has to be a list of colors maximum 8 long
+        #the colors can either be defined as a color code example:[255, 255, 255]
+        #or a string exapmple "white"
+        led_strip_1.set_colors( value )
+    elif component == "clean":
+        GPIO.cleanup()
     else:
-        led_1.set_led( False )
-    time.sleep( 0.1 )
+        return("wrong component")
+
+
+
+
+def startNetwork():
+    with SimpleXMLRPCServer(('', 65432)) as server:
+        server.register_introspection_functions()
+        server.register_function(calls, 'calls')
+        #etc
+
+        server.serve_forever()
+try:
+    startNetwork()
+except KeyboardInterrupt:
+    print("interupt")
+finally:
+    GPIO.cleanup()
+
+
+'''
+def led( on_off ):
+    led_1.set_led( on_off )
+
+def switch( ):
+    return switch_1.get_switch( )
+
+def servo( poss ):
+    servo_1.set_servo( poss )
+
+def SR04( ):
+    return SR04_1.get_distance( )
+
+def register( amount_leds ):
+    reg_1.set_leds( amount_leds )
+
+def led_strip( colors ):
+    led_strip_1.set_colors( colors )
+'''
+    
 
