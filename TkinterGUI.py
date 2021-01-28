@@ -12,6 +12,7 @@ print("start")
 # make connection to the server
 s = xmlrpc.client.ServerProxy('http://steamptw.ddns.net:65432')
 
+#DevNull to remove unnecessary outputs
 class DevNull:
     def write(self, msg):
         pass
@@ -66,13 +67,15 @@ def on_focusout(event):
 
 #friendadd button function
 def button_add():
-    friendlist.insert(END, e.get())
-    ## reg veranderen
-    try:
-        s.calls("reg", friendlist.size())
-    except:
-        pass
-    print(friendlist.size())
+    if (len(e.get()) > 0):
+        friendlist.insert(END, e.get())
+        ## reg veranderen
+        try:
+            s.calls("reg", friendlist.size())
+        except:
+            pass
+    else:
+        print("blank username")
 
 def sort_friendlist():
     temp_list = list(friendlist.get(0, END))
@@ -199,14 +202,15 @@ def locallib():
         except:
             print("uneven amount of games")
 
+#calls to server to provide distance
 def distance_check():
-    distance = None
+    distance = "??"
     try:
         distance = s.calls("SR04")
     except:
         pass
     
-    distancelabel.config(text=str(distance) + " cm")
+    distancelabel.config(text=str(distance) + " cm to screen")
 
 #closing prompt with red strip lights
 def on_closing():
@@ -215,6 +219,7 @@ def on_closing():
     except:
         pass
     
+    #reset alls functions to off if quitting.
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
         try:
             s.calls("strip", ["", "", "", "", "", "", "", ""])
@@ -223,6 +228,16 @@ def on_closing():
 
         try:
             s.calls("led", False)
+        except:
+            pass
+
+        try:
+            s.calls("reg", 0)
+        except:
+            pass
+        
+        try:
+            s.calls("servo", 0)
         except:
             pass
 
@@ -288,9 +303,9 @@ onlinelib_button = Button(library_frame, text="online library", borderwidth=3, f
 onlinelib_button.grid(row=2, column=1, columnspan=1, padx=2, pady=5)
 
 #distance checker
-distancelabel = ttk.Label(friendlist_frame, text="asd")
+distancelabel = ttk.Label(friendlist_frame, text="waiting on check")
 distancelabel.grid(row=2, rowspan=1, column=0, columnspan=1)
-distancebutton = Button(friendlist_frame, text="distance to screen", borderwidth=3, fg="grey", bg="#2A3F5A", padx=5, pady=5, command=distance_check)
+distancebutton = Button(friendlist_frame, text="distance to screen", borderwidth=3, fg="grey", bg="#2A3F5A", padx=5, pady=20, command=distance_check)
 distancebutton.grid(row=2, rowspan=1, column=1, columnspan=1)
 
 
