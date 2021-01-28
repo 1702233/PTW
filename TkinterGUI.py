@@ -10,7 +10,10 @@ import sys
 
 print("start")
 # make connection to the server
-s = xmlrpc.client.ServerProxy('http://steamptw.ddns.net:65432')
+try:
+    s = xmlrpc.client.ServerProxy('http://steamptw.ddns.net:65432')
+except:
+    print("Cannot connect to server")
 
 #DevNull to remove unnecessary outputs
 class DevNull:
@@ -312,11 +315,15 @@ distancebutton.grid(row=2, rowspan=1, column=1, columnspan=1)
 #loads the online library upon starting the application
 onlinelib()
 
-#wait until the server button is pressed for the gui to start
-while True:
-    time.sleep(0.1)
-    if (s.calls("switch") == 1):
-        break
+#check if connection is made to server
+if s in locals():
+    #wait until the server button is pressed for the gui to start
+    while True:
+        time.sleep(0.1)
+        if (s.calls("switch") == 1):
+            break
+else:
+    print("No connection made to server continuing offline")
 
 #what to do when you press X
 root.protocol("WM_DELETE_WINDOW", on_closing)
