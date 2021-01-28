@@ -1,10 +1,23 @@
 from tkinter import *
 from tkinter import ttk
+from tkinter import messagebox
 from datetime import datetime
 import json
+import xmlrpc.client 
+import time
+import sys
 
 
 print("start")
+# make connection to the server
+s = xmlrpc.client.ServerProxy('http://steamptw.ddns.net:65432')
+
+class DevNull:
+    def write(self, msg):
+        pass
+
+sys.stderr = DevNull()
+
 #load the steam.json file
 with open('./steam.json') as f:
     jsondata = json.load(f)
@@ -54,7 +67,11 @@ def on_focusout(event):
 #friendadd button function
 def button_add():
     friendlist.insert(END, e.get())
-    ## led veranderen
+    ## reg veranderen
+    try:
+        s.calls("reg", friendlist.size())
+    except:
+        pass
     print(friendlist.size())
 
 def sort_friendlist():
@@ -68,8 +85,7 @@ def delete_friend():
     try:
         index = friendlist.curselection()[0]
         friendlist.delete(index)
-        ## led veranderen
-        print(friendlist.size())
+        s.calls("reg", friendlist.size())
     except IndexError:
         pass
 
@@ -79,6 +95,10 @@ def update_game(game):
     time_game_started = datetime.now()
     current_game = game
     current_game_label.config(text="Playing: " + game)
+    try:
+        s.calls("led", True)
+    except:
+        pass
     stop_playing_button.grid(row=1, column=0, columnspan=1, padx=5, pady=5)
     time_played_label.grid_remove()
     show_game_statistics(game)
@@ -87,6 +107,12 @@ def stop_game():
     global current_game
     current_game_label.config(text="Currently not playing a game")
     stop_playing_button.grid_remove()
+    try:
+        s.calls("led", False)
+    except:
+        pass
+    
+
     time_played = (datetime.now() -time_game_started)
     time_played_label.config(text="Played " + current_game +" for " + str(time_played).split(".")[0])
     time_played_label.grid(row=1, column=0, columnspan=1, padx=5, pady=5)
@@ -127,6 +153,11 @@ def hide_game_statistics():
 
 def onlinelib():
     global jsondata
+
+    try:
+        s.calls("servo", 25)
+    except:
+        pass
     #make buttons for games in jsondata
     for widget in labelframe.winfo_children():
         widget.destroy()
@@ -144,6 +175,12 @@ def onlinelib():
             print("uneven amount of games")
 
 def locallib():
+    try:
+        s.calls("servo", 75)
+    except:
+        pass
+    
+    
     #load gamelist
     gamelistfile = open('gamelist.txt','r')
     gamelist = gamelistfile.readlines()
@@ -162,7 +199,39 @@ def locallib():
         except:
             print("uneven amount of games")
 
+def distance_check():
+    distance = None
+    try:
+        distance = s.calls("SR04")
+    except:
+        pass
+    
+    distancelabel.config(text=str(distance) + " cm")
 
+#closing prompt with red strip lights
+def on_closing():
+    try:
+        s.calls("strip", ["red", "red", "red", "red", "red", "red", "red", "red"])
+    except:
+        pass
+    
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        try:
+            s.calls("strip", ["", "", "", "", "", "", "", ""])
+        except:
+            pass
+
+        try:
+            s.calls("led", False)
+        except:
+            pass
+
+        root.destroy()
+    try:
+        s.calls("strip", ["", "", "", "", "", "", "", ""])
+    except:
+        pass
+    
 #adding labelframe for friends
 friendlabelframe = LabelFrame(friendlist_frame, text="Friends", font=("TkDefaultFont", 33), bg="#1B2838", fg="grey")
 friendlabelframe.grid(row=1, rowspan=1, column=0, columnspan=5)
@@ -218,8 +287,25 @@ locallib_button.grid(row=2, column=0, columnspan=1, padx=2, pady=5)
 onlinelib_button = Button(library_frame, text="online library", borderwidth=3, fg="grey", bg="#2A3F5A", padx=5, pady=5, command=onlinelib)
 onlinelib_button.grid(row=2, column=1, columnspan=1, padx=2, pady=5)
 
+#distance checker
+distancelabel = ttk.Label(friendlist_frame, text="asd")
+distancelabel.grid(row=2, rowspan=1, column=0, columnspan=1)
+distancebutton = Button(friendlist_frame, text="distance to screen", borderwidth=3, fg="grey", bg="#2A3F5A", padx=5, pady=5, command=distance_check)
+distancebutton.grid(row=2, rowspan=1, column=1, columnspan=1)
+
+
 #loads the online library upon starting the application
 onlinelib()
-    
+
+#wait until the server button is pressed for the gui to start
+while True:
+    time.sleep(0.1)
+    if (s.calls("switch") == 1):
+        break
+
+#what to do when you press X
+root.protocol("WM_DELETE_WINDOW", on_closing)
+
+#start the gui
 root.mainloop()
 print("end")
